@@ -1,380 +1,116 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>拾荒技能</title>
+<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Noto+Sans+TC:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
+  /* 簡潔大方：深色底、單一金色重點、大量留白；單欄置中 */
   :root{
-    --bg: #0a0e17;
-    --bg-deep: #060810;
-    --panel: #121a2c;
-    --panel-line: #263252;
-    --cyan: #4cd6e0;
-    --cyan-bright: #9df3fa;
-    --violet: #7c6cf0;
-    --ember: #e0524c;
-    --ember-bright: #ff8a7a;
-    --ink: #e7edf7;
-    --muted: #7c8bab;
-    --shadow: rgba(0,0,0,0.55);
+    --bg:#0d1017; --panel:#161b26; --line:#232a3a;
+    --ink:#f2f4f8; --muted:#8b94a8; --gold:#f5c451; --slate:#2a3247;
+    color-scheme:dark;
   }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;min-height:100%;background-color:var(--bg);color:var(--ink)}
+  body{
+    font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+    display:flex;justify-content:center;user-select:none;
+    padding-block:clamp(28px,7vw,64px) 56px;
+    padding-left:max(20px,env(safe-area-inset-left,0px));
+    padding-right:max(20px,env(safe-area-inset-right,0px));
+    background:radial-gradient(ellipse 700px 380px at 50% -10%,#1a2133,transparent 70%),var(--bg);
+    background-color:var(--bg);
+  }
+  #fx{position:fixed;inset:0;pointer-events:none;z-index:5}
+  #flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:6}
+  #flash.on{animation:flash-out .5s ease-out}
+  @keyframes flash-out{0%{opacity:.28}100%{opacity:0}}
 
-  * { box-sizing: border-box; }
+  .stage{width:100%;max-width:420px;min-width:0;display:flex;flex-direction:column;align-items:center;gap:32px}
 
-  html, body {
-    margin: 0;
-    min-height: 100%;
-    background: var(--bg-deep);
-    color: var(--ink);
-  }
+  header{text-align:center}
+  h1{margin:0;font-size:clamp(28px,7vw,34px);font-weight:900;letter-spacing:.12em;text-wrap:balance}
+  .tagline{margin:10px 0 0;font-size:14px;color:var(--muted);letter-spacing:.08em}
 
-  body {
-    font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
-    display: flex;
-    justify-content: center;
-    padding-block: clamp(20px, 5vw, 48px) 64px;
-    padding-left: max(16px, env(safe-area-inset-left, 0px));
-    padding-right: max(16px, env(safe-area-inset-right, 0px));
-    background:
-      radial-gradient(ellipse 800px 460px at 50% -8%, #1a2542 0%, transparent 60%),
-      radial-gradient(ellipse 700px 420px at 85% 100%, #1c1230 0%, transparent 55%),
-      var(--bg-deep);
-  }
+  /* 轉盤 */
+  .dial-wrap{position:relative;width:min(76vw,300px);aspect-ratio:1;display:flex;align-items:center;justify-content:center}
+  canvas#dial{width:100%;height:100%}
+  .pointer{position:absolute;top:-6px;left:50%;transform:translateX(-50%);width:0;height:0;
+    border-left:10px solid transparent;border-right:10px solid transparent;border-top:18px solid var(--gold);z-index:3}
+  .core{position:absolute;width:30%;aspect-ratio:1;border-radius:50%;background:var(--bg);border:2px solid var(--line);
+    display:grid;place-items:center;z-index:4;pointer-events:none;transition:border-color .3s,box-shadow .3s}
+  .core::after{content:"";width:28%;aspect-ratio:1;border-radius:50%;background:var(--muted);transition:background .3s}
+  .dial-wrap.charging .core::after{background:var(--gold);animation:blink .4s ease-in-out infinite}
+  @keyframes blink{50%{opacity:.35}}
+  .dial-wrap.result-win .core{border-color:var(--gold)}
+  .dial-wrap.result-win .core::after{background:var(--gold)}
+  .dial-wrap.result-lose .core::after{background:#6c7790}
+  .dial-wrap.shake{animation:shake .4s ease}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}50%{transform:translateX(5px)}75%{transform:translateX(-3px)}}
 
-  .stage {
-    width: 100%;
-    max-width: 460px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 22px;
-  }
+  /* 按鈕 */
+  .cta-row{display:flex;flex-direction:column;align-items:center;gap:12px}
+  .cast-btn{font:inherit;font-size:18px;font-weight:700;letter-spacing:.3em;text-indent:.3em;padding:15px 52px;border:0;border-radius:999px;cursor:pointer;
+    color:#1b1405;background:var(--gold);box-shadow:0 8px 24px rgba(245,196,81,.22);transition:transform .1s,box-shadow .1s,filter .15s}
+  .cast-btn:hover:not(:disabled){filter:brightness(1.06)}
+  .cast-btn:active:not(:disabled){transform:translateY(2px);box-shadow:0 3px 12px rgba(245,196,81,.2)}
+  .cast-btn:disabled{background:var(--slate);color:var(--muted);box-shadow:none;cursor:wait}
+  .cast-btn:focus-visible,.reset-link:focus-visible{outline:2px solid var(--gold);outline-offset:4px}
+  .odds{font-size:13px;color:var(--muted);letter-spacing:.1em}
 
-  /* ---------- Header ---------- */
-  .header { text-align: center; }
+  /* 結果 */
+  .result{width:100%;min-height:92px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}
+  .result .big{font-size:clamp(24px,6.5vw,30px);font-weight:900;line-height:1.2;text-wrap:balance}
+  .result .sub{font-size:14px;color:var(--muted)}
+  .result.idle .big{font-size:18px;font-weight:500;color:var(--muted)}
+  .result.win .big{color:var(--gold);animation:rise .45s ease-out}
+  .result.lose .big{color:#a9b3c9;animation:rise .45s ease-out}
+  @keyframes rise{0%{transform:translateY(8px);opacity:0}100%{transform:none;opacity:1}}
 
-  .eyebrow {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 11px;
-    letter-spacing: 0.22em;
-    color: var(--violet);
-    display: block;
-    margin-bottom: 10px;
-  }
+  /* 統計 */
+  .stats{width:100%;display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .stat{padding:16px 6px;text-align:center;min-width:0}
+  .stat+.stat{border-left:1px solid var(--line)}
+  .stat .num{font-variant-numeric:tabular-nums;font-weight:700;font-size:24px;display:block}
+  .stat .lbl{font-size:12px;color:var(--muted);margin-top:4px;display:block}
+  .hist{display:flex;gap:10px;justify-content:center;min-height:14px;flex-wrap:wrap}
+  .hist span{width:12px;height:12px;border-radius:50%;background:var(--gold)}
+  .hist span.l{background:transparent;border:2px solid #5b6680}
+  .reset-link{background:none;border:none;color:var(--muted);font:inherit;font-size:13px;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:4px}
+  .reset-link:hover{color:var(--ink)}
 
-  h1 {
-    font-family: "Orbitron", "Noto Sans TC", sans-serif;
-    font-size: clamp(26px, 7vw, 34px);
-    font-weight: 900;
-    margin: 0;
-    letter-spacing: 0.02em;
-    color: var(--ink);
-    text-wrap: balance;
-  }
-
-  .tagline {
-    margin: 10px 0 0;
-    font-size: 13.5px;
-    color: var(--muted);
-    letter-spacing: 0.03em;
-  }
-  .tagline .pct-good { color: var(--cyan-bright); font-family: "JetBrains Mono", monospace; font-weight: 700; }
-  .tagline .pct-bad { color: var(--ember-bright); font-family: "JetBrains Mono", monospace; font-weight: 700; }
-
-  /* ---------- Dial ---------- */
-  .dial-wrap {
-    position: relative;
-    width: min(72vw, 280px);
-    aspect-ratio: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  canvas#dial {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    transform: rotate(0deg);
-    filter: drop-shadow(0 10px 26px rgba(0,0,0,0.6));
-  }
-
-  .pointer {
-    position: absolute;
-    top: 2px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 0;
-    height: 0;
-    border-left: 9px solid transparent;
-    border-right: 9px solid transparent;
-    border-top: 16px solid var(--violet);
-    filter: drop-shadow(0 0 6px rgba(124,108,240,0.8));
-    z-index: 3;
-  }
-
-  .core {
-    position: absolute;
-    width: 46%;
-    aspect-ratio: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 4;
-    pointer-events: none;
-  }
-
-  .core svg {
-    width: 100%;
-    height: 100%;
-  }
-
-  .core .hex {
-    fill: var(--panel);
-    stroke: var(--violet);
-    stroke-width: 2.5;
-    transition: stroke 0.3s ease, fill 0.3s ease;
-  }
-
-  .core .bolt {
-    fill: var(--cyan-bright);
-    filter: drop-shadow(0 0 6px rgba(76,214,224,0.7));
-    transition: fill 0.3s ease, filter 0.3s ease;
-    animation: idle-pulse 2.6s ease-in-out infinite;
-  }
-
-  @keyframes idle-pulse {
-    0%, 100% { opacity: 0.75; }
-    50% { opacity: 1; }
-  }
-
-  .dial-wrap.charging .core .hex { stroke: var(--cyan-bright); }
-  .dial-wrap.charging .core .bolt {
-    animation: charge-flicker 0.35s ease-in-out infinite;
-    filter: drop-shadow(0 0 12px rgba(157,243,250,0.95));
-  }
-  @keyframes charge-flicker {
-    0%, 100% { opacity: 0.6; transform: scale(0.96); }
-    50% { opacity: 1; transform: scale(1.04); }
-  }
-
-  .dial-wrap.result-win .core .hex { stroke: var(--cyan-bright); fill: #133430; }
-  .dial-wrap.result-win .core .bolt { fill: var(--cyan-bright); animation: none; opacity: 1; }
-  .dial-wrap.result-lose .core .hex { stroke: var(--ember); fill: #2e1414; }
-  .dial-wrap.result-lose .core .bolt { fill: var(--ember-bright); animation: none; opacity: 0.85; }
-
-  .burst {
-    position: absolute;
-    inset: -20%;
-    border-radius: 50%;
-    z-index: 2;
-    pointer-events: none;
-    opacity: 0;
-  }
-  .dial-wrap.result-win .burst {
-    background: radial-gradient(circle, rgba(76,214,224,0.35) 0%, transparent 70%);
-    animation: burst-out 0.7s ease-out;
-  }
-  .dial-wrap.result-lose .burst {
-    background: radial-gradient(circle, rgba(224,82,76,0.3) 0%, transparent 70%);
-    animation: burst-out 0.5s ease-out;
-  }
-  @keyframes burst-out {
-    0% { opacity: 0.9; transform: scale(0.7); }
-    100% { opacity: 0; transform: scale(1.35); }
-  }
-
-  /* ---------- CTA ---------- */
-  .cta-row {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 7px;
-  }
-
-  .cast-btn {
-    font-family: "Orbitron", sans-serif;
-    font-weight: 700;
-    font-size: 17px;
-    letter-spacing: 0.08em;
-    color: var(--bg-deep);
-    background: linear-gradient(180deg, var(--cyan-bright), var(--cyan));
-    border: none;
-    border-radius: 10px;
-    padding: 14px 42px;
-    cursor: pointer;
-    box-shadow: 0 6px 0 #1f7b82, 0 10px 20px rgba(76,214,224,0.25);
-    transition: transform 0.08s ease, box-shadow 0.08s ease;
-  }
-  .cast-btn:hover:not(:disabled) { filter: brightness(1.06); }
-  .cast-btn:active:not(:disabled) {
-    transform: translateY(5px);
-    box-shadow: 0 1px 0 #1f7b82, 0 3px 8px rgba(76,214,224,0.2);
-  }
-  .cast-btn:disabled {
-    background: linear-gradient(180deg, #445064, #313c4e);
-    color: #8998b3;
-    cursor: not-allowed;
-    box-shadow: 0 6px 0 #232b39;
-  }
-  .cast-btn:focus-visible {
-    outline: 3px solid var(--violet);
-    outline-offset: 3px;
-  }
-
-  .odds {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 11.5px;
-    color: var(--muted);
-    letter-spacing: 0.05em;
-  }
-
-  /* ---------- Result banner ---------- */
-  .banner {
-    width: 100%;
-    min-height: 78px;
-    border-radius: 10px;
-    background: var(--panel);
-    border: 1px solid var(--panel-line);
-    padding: 14px 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    transition: border-color 0.3s ease, background 0.3s ease;
-  }
-  .banner p { margin: 0; }
-  .banner .headline {
-    font-family: "Orbitron", sans-serif;
-    font-weight: 700;
-    font-size: 19px;
-    display: block;
-    margin-bottom: 3px;
-  }
-  .banner.idle .headline { font-family: "Noto Sans TC", sans-serif; font-size: 14px; color: var(--muted); }
-  .banner.win .headline { color: var(--cyan-bright); }
-  .banner.lose .headline { color: var(--ember-bright); }
-  .banner .sub { font-size: 12.5px; color: var(--muted); }
-
-  .banner.win {
-    border-color: var(--cyan);
-    background: linear-gradient(180deg, rgba(76,214,224,0.14), rgba(76,214,224,0.04));
-  }
-  .banner.lose {
-    border-color: var(--ember);
-    background: linear-gradient(180deg, rgba(224,82,76,0.14), rgba(224,82,76,0.04));
-  }
-
-  /* ---------- Stats ---------- */
-  .stats {
-    width: 100%;
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-  }
-  .stat {
-    background: var(--panel);
-    border: 1px solid var(--panel-line);
-    border-radius: 10px;
-    padding: 10px 8px;
-    text-align: center;
-  }
-  .stat .num {
-    font-family: "JetBrains Mono", monospace;
-    font-variant-numeric: tabular-nums;
-    font-weight: 700;
-    font-size: 19px;
-    color: var(--ink);
-    display: block;
-  }
-  .stat .lbl {
-    font-size: 10.5px;
-    color: var(--muted);
-    letter-spacing: 0.06em;
-    margin-top: 3px;
-    display: block;
-  }
-
-  .reset-link {
-    background: none;
-    border: none;
-    color: var(--muted);
-    font-size: 12px;
-    text-decoration: underline;
-    text-underline-offset: 3px;
-    cursor: pointer;
-    padding: 4px;
-  }
-  .reset-link:hover { color: var(--ink); }
-  .reset-link:focus-visible { outline: 2px solid var(--violet); border-radius: 3px; }
-
-  /* ---------- Effects layer ---------- */
-  #fx { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
-  #flash { position: fixed; inset: 0; background: #fff; opacity: 0; pointer-events: none; z-index: 6; }
-  #flash.on { animation: flash-out 0.5s ease-out; }
-  @keyframes flash-out { 0% { opacity: 0.6; } 100% { opacity: 0; } }
-
-  /* 轉盤外圈光暈：待命時微亮，判定中增強 */
-  .dial-wrap::before {
-    content: ""; position: absolute; inset: -4%; border-radius: 50%;
-    background: radial-gradient(circle, transparent 62%, rgba(124,108,240,0.22) 72%, transparent 78%);
-    transition: opacity 0.3s ease; opacity: 0.7; pointer-events: none;
-  }
-  .dial-wrap.charging::before { opacity: 1; animation: ring-pulse 0.6s ease-in-out infinite; }
-  @keyframes ring-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.04); } }
-  .dial-wrap.shake { animation: shake 0.4s ease; }
-  @keyframes shake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-7px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(3px); } }
-
-  .banner .headline { text-wrap: balance; }
-  .banner.win .headline { text-shadow: 0 0 14px rgba(76,214,224,0.45); }
-
-  /* ---------- History ---------- */
-  .hist { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; min-height: 28px; }
-  .hist span {
-    width: 28px; height: 28px; display: grid; place-items: center; border-radius: 8px;
-    background: var(--panel); border: 1px solid var(--panel-line);
-    font-family: "JetBrains Mono", monospace; font-size: 13px; font-weight: 700;
-  }
-  .hist span.w { color: var(--cyan-bright); border-color: rgba(76,214,224,0.55); }
-  .hist span.l { color: var(--ember-bright); border-color: rgba(224,82,76,0.55); }
-
-  @media (prefers-reduced-motion: reduce) {
-    .dial-wrap.charging::before, .dial-wrap.shake { animation: none !important; }
-    .core .bolt { animation: none !important; }
-    .burst { animation: none !important; opacity: 0 !important; }
-    canvas#dial { transition-duration: 0.6s !important; }
+  @media (prefers-reduced-motion:reduce){
+    .dial-wrap.charging .core::after,.dial-wrap.shake,.result .big{animation:none!important}
+    canvas#dial{transition-duration:.6s!important}
   }
 </style>
-
+</head>
+<body>
 <canvas id="fx" aria-hidden="true"></canvas><div id="flash" aria-hidden="true"></div>
 <div class="stage">
-  <div class="header">
-    <span class="eyebrow">SCAVENGER SKILL PROC</span>
+  <header>
     <h1>拾荒技能</h1>
-    <p class="tagline">發動成功 <span class="pct-good">50%</span>　發動失敗 <span class="pct-bad">50%</span></p>
-  </div>
+    <p class="tagline">發動成功 50%　·　發動失敗 50%</p>
+  </header>
 
   <div class="dial-wrap" id="dialWrap">
-    <div class="burst" aria-hidden="true"></div>
     <canvas id="dial" width="640" height="640" role="img" aria-label="判定轉盤，50% 區域為發動成功並獲得垃圾，50% 區域為發動失敗"></canvas>
     <div class="pointer" aria-hidden="true"></div>
-    <div class="core" aria-hidden="true">
-      <svg viewBox="0 0 100 100">
-        <polygon class="hex" points="50,6 88,28 88,72 50,94 12,72 12,28"/>
-        <path class="bolt" d="M54 22 L34 56 L48 56 L44 80 L70 44 L54 44 Z"/>
-      </svg>
-    </div>
+    <div class="core" aria-hidden="true"></div>
   </div>
 
   <div class="cta-row">
     <button class="cast-btn" id="castBtn">發動技能</button>
-    <span class="odds">PROC RATE · 50 / 50</span>
+    <span class="odds">成功 50%　失敗 50%</span>
   </div>
 
-  <div class="banner idle" id="banner" role="status" aria-live="polite">
-    <p><span class="headline">技能待命中</span><span class="sub">按下「發動技能」進行判定</span></p>
+  <div class="result idle" id="banner" role="status" aria-live="polite">
+    <span class="big">技能待命中</span><span class="sub">按下「發動技能」進行判定</span>
   </div>
 
   <div class="stats">
@@ -382,8 +118,7 @@
     <div class="stat"><span class="num" id="statWins">0</span><span class="lbl">獲得垃圾次數</span></div>
     <div class="stat"><span class="num" id="statRate">—</span><span class="lbl">實際成功率</span></div>
   </div>
-
-  <div class="hist" id="hist" aria-label="最近 10 次結果"></div>
+  <div class="hist" id="hist" aria-label="最近 10 次結果，實心為成功，空心為失敗"></div>
   <button class="reset-link" id="resetBtn">重設紀錄</button>
 </div>
 
@@ -408,7 +143,7 @@
   var spinning = false;
 
   var STORE_KEY = "scavenger-skill-stats-v1";
-  var stats = { casts: 0, wins: 0 };
+  var stats = { casts: 0, wins: 0, hist: [] };
   try {
     var saved = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
     if (saved && typeof saved.casts === "number" && typeof saved.wins === "number") {
@@ -426,24 +161,22 @@
     statRate.textContent = stats.casts > 0
       ? (100 * stats.wins / stats.casts).toFixed(1) + "%"
       : "—";
-    var hist = stats.hist || [];
-    document.getElementById("hist").innerHTML = hist.map(function (w) {
-      return '<span class="' + (w ? "w" : "l") + '">' + (w ? "✓" : "✗") + "</span>";
+    document.getElementById("hist").innerHTML = (stats.hist || []).map(function (w) {
+      return '<span class="' + (w ? "w" : "l") + '"></span>';
     }).join("");
   }
 
   function drawDial() {
     var dpr = window.devicePixelRatio || 1;
-    var size = canvas.clientWidth || 280;
+    var size = canvas.clientWidth || 300;
     canvas.width = size * dpr;
     canvas.height = size * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, size, size);
 
     var cx = size / 2, cy = size / 2;
-    var rOuter = size / 2 - 6;
-    var band = size * 0.1;
-    var rInner = rOuter - band;
+    var rOuter = size / 2 - 4;
+    var rInner = rOuter - size * 0.2;
 
     function ring(startDeg, endDeg, color) {
       var start = (-90 + startDeg) * Math.PI / 180;
@@ -455,42 +188,37 @@
       ctx.fillStyle = color;
       ctx.fill();
     }
+    ring(0, SUCCESS_DEG, "#f5c451");
+    ring(SUCCESS_DEG, 360, "#2a3247");
 
-    ring(0, SUCCESS_DEG, "#1c5a5f");
-    ring(SUCCESS_DEG, 360, "#5c2320");
-
+    // 分隔縫
     ctx.save();
-    ctx.strokeStyle = "rgba(6,8,16,0.9)";
-    ctx.lineWidth = 3;
+    ctx.strokeStyle = "#0d1017";
+    ctx.lineWidth = 5;
     [0, SUCCESS_DEG].forEach(function (deg) {
       var a = (-90 + deg) * Math.PI / 180;
       ctx.beginPath();
-      ctx.moveTo(cx + rInner * Math.cos(a), cy + rInner * Math.sin(a));
-      ctx.lineTo(cx + rOuter * Math.cos(a), cy + rOuter * Math.sin(a));
+      ctx.moveTo(cx + (rInner - 2) * Math.cos(a), cy + (rInner - 2) * Math.sin(a));
+      ctx.lineTo(cx + (rOuter + 2) * Math.cos(a), cy + (rOuter + 2) * Math.sin(a));
       ctx.stroke();
     });
     ctx.restore();
 
     function label(text, midDeg, color) {
       var mid = (-90 + midDeg) * Math.PI / 180;
+      var rr = (rInner + rOuter) / 2;
       ctx.save();
-      ctx.translate(cx + (rInner + band / 2) * Math.cos(mid), cy + (rInner + band / 2) * Math.sin(mid));
+      ctx.translate(cx + rr * Math.cos(mid), cy + rr * Math.sin(mid));
       ctx.rotate(mid + Math.PI / 2);
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillStyle = color;
-      ctx.font = "700 " + Math.round(size * 0.05) + "px 'JetBrains Mono', monospace";
+      ctx.font = "700 " + Math.round(size * 0.065) + "px 'Noto Sans TC', sans-serif";
       ctx.fillText(text, 0, 0);
       ctx.restore();
     }
-    label("50%", SUCCESS_DEG / 2, "#9df3fa");
-    label("50%", SUCCESS_DEG + (360 - SUCCESS_DEG) / 2, "#ff8a7a");
-
-    ctx.beginPath();
-    ctx.arc(cx, cy, rOuter, 0, Math.PI * 2);
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = "rgba(124,108,240,0.4)";
-    ctx.stroke();
+    label("成功 50%", SUCCESS_DEG / 2, "#2b2105");
+    label("失敗 50%", SUCCESS_DEG + (360 - SUCCESS_DEG) / 2, "#aeb8cf");
   }
 
   function isSuccessAtPointer(rotationDeg) {
@@ -499,12 +227,12 @@
     return y < SUCCESS_DEG;
   }
 
-  function setBanner(state, headline, sub) {
-    banner.className = "banner " + state;
-    banner.innerHTML = '<p><span class="headline">' + headline + '</span><span class="sub">' + sub + '</span></p>';
+  function setBanner(state, big, sub) {
+    banner.className = "result " + state;
+    banner.innerHTML = '<span class="big">' + big + '</span><span class="sub">' + sub + '</span>';
   }
 
-  /* ---------- 特效：閃光、光點粒子、音效（不影響判定結果） ---------- */
+  /* ---------- 特效：輕量閃光與光點、音效（不影響判定結果） ---------- */
   var fx = document.getElementById("fx"), fctx = fx.getContext("2d");
   var flashEl = document.getElementById("flash");
   var particles = [], fxRunning = false, sprites = {};
@@ -513,7 +241,6 @@
   sizeFx();
   window.addEventListener("resize", sizeFx);
 
-  // 預先畫好發光光點，之後只用 drawImage，手機也不會卡
   function sprite(color) {
     if (sprites[color]) return sprites[color];
     var s = document.createElement("canvas");
@@ -527,10 +254,10 @@
     for (var i = 0; i < n; i++) {
       var a = Math.random() * Math.PI * 2, sp = Math.random() * power + 2;
       particles.push({ x: x, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 2, life: 1,
-        decay: 0.008 + Math.random() * 0.015, size: Math.random() * 4 + 3,
-        color: Math.random() < 0.5 ? color : "#ffffff" });
+        decay: 0.012 + Math.random() * 0.015, size: Math.random() * 3 + 2.5,
+        color: Math.random() < 0.6 ? color : "#ffffff" });
     }
-    if (particles.length > 260) particles.splice(0, particles.length - 260);
+    if (particles.length > 200) particles.splice(0, particles.length - 200);
     if (!fxRunning) { fxRunning = true; requestAnimationFrame(fxTick); }
   }
   function fxTick() {
@@ -560,35 +287,32 @@
       ac = ac || new (window.AudioContext || window.webkitAudioContext)();
       var o = ac.createOscillator(), g = ac.createGain();
       o.type = type || "sine"; o.frequency.value = f;
-      g.gain.setValueAtTime(v || 0.15, ac.currentTime + t);
+      g.gain.setValueAtTime(v || 0.12, ac.currentTime + t);
       g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + t + d);
       o.connect(g); g.connect(ac.destination);
       o.start(ac.currentTime + t); o.stop(ac.currentTime + t + d);
     } catch (e) { /* audio unavailable */ }
   }
-  // 轉盤滴答聲：越轉越慢，與 3.6 秒緩動對應
   function spinSound() {
     if (reduceMotion) return;
     for (var i = 0; i < 16; i++) {
       var u = i / 16;
-      tone(520 - i * 12, 3.4 * (1 - Math.pow(1 - u, 2)), 0.05, "square", 0.04);
+      tone(520 - i * 12, 3.4 * (1 - Math.pow(1 - u, 2)), 0.05, "square", 0.03);
     }
   }
   function celebrate(success) {
     var r = dialWrap.getBoundingClientRect();
     var x = r.left + r.width / 2, y = r.top + r.height / 2;
     if (success) {
-      [523, 659, 784, 1047].forEach(function (f, i) { tone(f, i * 0.09, 0.3, "triangle", 0.16); });
+      [523, 659, 784, 1047].forEach(function (f, i) { tone(f, i * 0.09, 0.3, "triangle", 0.13); });
     } else {
-      tone(311, 0, 0.25, "triangle", 0.14); tone(233, 0.15, 0.4, "triangle", 0.14);
+      tone(311, 0, 0.25, "triangle", 0.11); tone(233, 0.15, 0.4, "triangle", 0.11);
     }
     if (reduceMotion) return;
     if (success) {
       flash();
-      burst(x, y, 50, "#9df3fa", 9);
-      setTimeout(function () { burst(x, y, 30, "#b3a8ff", 11); }, 180);
+      burst(x, y, 36, "#f5c451", 8);
     } else {
-      burst(x, y, 22, "#ff8a7a", 5);
       dialWrap.classList.remove("shake"); void dialWrap.offsetWidth; dialWrap.classList.add("shake");
     }
   }
@@ -630,9 +354,9 @@
       dialWrap.classList.add(success ? "result-win" : "result-lose");
 
       if (success) {
-        setBanner("win", "⚡ 技能發動成功！獲得垃圾 x1", "你從技能中撿到了一堆沒人要的破爛");
+        setBanner("win", "發動成功！獲得垃圾 x1", "你從技能中撿到了一堆沒人要的破爛");
       } else {
-        setBanner("lose", "技能發動失敗…", "能量潰散,什麼都沒獲得");
+        setBanner("lose", "發動失敗…", "能量潰散,什麼都沒獲得");
       }
       celebrate(success);
 
@@ -658,3 +382,5 @@
   renderStats();
 })();
 </script>
+</body>
+</html>
