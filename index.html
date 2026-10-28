@@ -1,3 +1,5 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>拾荒技能</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -32,7 +34,9 @@
     font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
     display: flex;
     justify-content: center;
-    padding: clamp(20px, 5vw, 48px) 16px 64px;
+    padding-block: clamp(20px, 5vw, 48px) 64px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
     background:
       radial-gradient(ellipse 800px 460px at 50% -8%, #1a2542 0%, transparent 60%),
       radial-gradient(ellipse 700px 420px at 85% 100%, #1c1230 0%, transparent 55%),
@@ -306,13 +310,45 @@
   .reset-link:hover { color: var(--ink); }
   .reset-link:focus-visible { outline: 2px solid var(--violet); border-radius: 3px; }
 
+  /* ---------- Effects layer ---------- */
+  #fx { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+  #flash { position: fixed; inset: 0; background: #fff; opacity: 0; pointer-events: none; z-index: 6; }
+  #flash.on { animation: flash-out 0.5s ease-out; }
+  @keyframes flash-out { 0% { opacity: 0.6; } 100% { opacity: 0; } }
+
+  /* 轉盤外圈光暈：待命時微亮，判定中增強 */
+  .dial-wrap::before {
+    content: ""; position: absolute; inset: -4%; border-radius: 50%;
+    background: radial-gradient(circle, transparent 62%, rgba(124,108,240,0.22) 72%, transparent 78%);
+    transition: opacity 0.3s ease; opacity: 0.7; pointer-events: none;
+  }
+  .dial-wrap.charging::before { opacity: 1; animation: ring-pulse 0.6s ease-in-out infinite; }
+  @keyframes ring-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+  .dial-wrap.shake { animation: shake 0.4s ease; }
+  @keyframes shake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-7px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(3px); } }
+
+  .banner .headline { text-wrap: balance; }
+  .banner.win .headline { text-shadow: 0 0 14px rgba(76,214,224,0.45); }
+
+  /* ---------- History ---------- */
+  .hist { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; min-height: 28px; }
+  .hist span {
+    width: 28px; height: 28px; display: grid; place-items: center; border-radius: 8px;
+    background: var(--panel); border: 1px solid var(--panel-line);
+    font-family: "JetBrains Mono", monospace; font-size: 13px; font-weight: 700;
+  }
+  .hist span.w { color: var(--cyan-bright); border-color: rgba(76,214,224,0.55); }
+  .hist span.l { color: var(--ember-bright); border-color: rgba(224,82,76,0.55); }
+
   @media (prefers-reduced-motion: reduce) {
+    .dial-wrap.charging::before, .dial-wrap.shake { animation: none !important; }
     .core .bolt { animation: none !important; }
     .burst { animation: none !important; opacity: 0 !important; }
     canvas#dial { transition-duration: 0.6s !important; }
   }
 </style>
 
+<canvas id="fx" aria-hidden="true"></canvas><div id="flash" aria-hidden="true"></div>
 <div class="stage">
   <div class="header">
     <span class="eyebrow">SCAVENGER SKILL PROC</span>
@@ -347,6 +383,7 @@
     <div class="stat"><span class="num" id="statRate">—</span><span class="lbl">實際成功率</span></div>
   </div>
 
+  <div class="hist" id="hist" aria-label="最近 10 次結果"></div>
   <button class="reset-link" id="resetBtn">重設紀錄</button>
 </div>
 
@@ -389,6 +426,10 @@
     statRate.textContent = stats.casts > 0
       ? (100 * stats.wins / stats.casts).toFixed(1) + "%"
       : "—";
+    var hist = stats.hist || [];
+    document.getElementById("hist").innerHTML = hist.map(function (w) {
+      return '<span class="' + (w ? "w" : "l") + '">' + (w ? "✓" : "✗") + "</span>";
+    }).join("");
   }
 
   function drawDial() {
@@ -463,6 +504,95 @@
     banner.innerHTML = '<p><span class="headline">' + headline + '</span><span class="sub">' + sub + '</span></p>';
   }
 
+  /* ---------- 特效：閃光、光點粒子、音效（不影響判定結果） ---------- */
+  var fx = document.getElementById("fx"), fctx = fx.getContext("2d");
+  var flashEl = document.getElementById("flash");
+  var particles = [], fxRunning = false, sprites = {};
+
+  function sizeFx() { fx.width = window.innerWidth; fx.height = window.innerHeight; }
+  sizeFx();
+  window.addEventListener("resize", sizeFx);
+
+  // 預先畫好發光光點，之後只用 drawImage，手機也不會卡
+  function sprite(color) {
+    if (sprites[color]) return sprites[color];
+    var s = document.createElement("canvas");
+    s.width = s.height = 32;
+    var g = s.getContext("2d"), gr = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+    gr.addColorStop(0, "#fff"); gr.addColorStop(0.25, color); gr.addColorStop(1, "transparent");
+    g.fillStyle = gr; g.fillRect(0, 0, 32, 32);
+    return (sprites[color] = s);
+  }
+  function burst(x, y, n, color, power) {
+    for (var i = 0; i < n; i++) {
+      var a = Math.random() * Math.PI * 2, sp = Math.random() * power + 2;
+      particles.push({ x: x, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 2, life: 1,
+        decay: 0.008 + Math.random() * 0.015, size: Math.random() * 4 + 3,
+        color: Math.random() < 0.5 ? color : "#ffffff" });
+    }
+    if (particles.length > 260) particles.splice(0, particles.length - 260);
+    if (!fxRunning) { fxRunning = true; requestAnimationFrame(fxTick); }
+  }
+  function fxTick() {
+    fctx.clearRect(0, 0, fx.width, fx.height);
+    fctx.globalCompositeOperation = "lighter";
+    var j = 0;
+    for (var k = 0; k < particles.length; k++) {
+      var p = particles[k];
+      p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.vx *= 0.99; p.life -= p.decay;
+      if (p.life <= 0) continue;
+      particles[j++] = p;
+      fctx.globalAlpha = p.life;
+      var d = p.size * 4;
+      fctx.drawImage(sprite(p.color), p.x - d / 2, p.y - d / 2, d, d);
+    }
+    particles.length = j;
+    if (j) requestAnimationFrame(fxTick);
+    else { fxRunning = false; fctx.clearRect(0, 0, fx.width, fx.height); }
+  }
+  function flash() {
+    flashEl.classList.remove("on"); void flashEl.offsetWidth; flashEl.classList.add("on");
+  }
+
+  var ac;
+  function tone(f, t, d, type, v) {
+    try {
+      ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+      var o = ac.createOscillator(), g = ac.createGain();
+      o.type = type || "sine"; o.frequency.value = f;
+      g.gain.setValueAtTime(v || 0.15, ac.currentTime + t);
+      g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + t + d);
+      o.connect(g); g.connect(ac.destination);
+      o.start(ac.currentTime + t); o.stop(ac.currentTime + t + d);
+    } catch (e) { /* audio unavailable */ }
+  }
+  // 轉盤滴答聲：越轉越慢，與 3.6 秒緩動對應
+  function spinSound() {
+    if (reduceMotion) return;
+    for (var i = 0; i < 16; i++) {
+      var u = i / 16;
+      tone(520 - i * 12, 3.4 * (1 - Math.pow(1 - u, 2)), 0.05, "square", 0.04);
+    }
+  }
+  function celebrate(success) {
+    var r = dialWrap.getBoundingClientRect();
+    var x = r.left + r.width / 2, y = r.top + r.height / 2;
+    if (success) {
+      [523, 659, 784, 1047].forEach(function (f, i) { tone(f, i * 0.09, 0.3, "triangle", 0.16); });
+    } else {
+      tone(311, 0, 0.25, "triangle", 0.14); tone(233, 0.15, 0.4, "triangle", 0.14);
+    }
+    if (reduceMotion) return;
+    if (success) {
+      flash();
+      burst(x, y, 50, "#9df3fa", 9);
+      setTimeout(function () { burst(x, y, 30, "#b3a8ff", 11); }, 180);
+    } else {
+      burst(x, y, 22, "#ff8a7a", 5);
+      dialWrap.classList.remove("shake"); void dialWrap.offsetWidth; dialWrap.classList.add("shake");
+    }
+  }
+
   function cast() {
     if (spinning) return;
     spinning = true;
@@ -470,6 +600,7 @@
     dialWrap.classList.remove("result-win", "result-lose");
     dialWrap.classList.add("charging");
     setBanner("idle", "判定中…", "技能能量正在匯聚");
+    spinSound();
 
     var fullSpins = reduceMotion ? 2 : (4 + Math.floor(Math.random() * 3));
     var randomExtra = Math.random() * 360;
@@ -489,6 +620,9 @@
 
       stats.casts += 1;
       if (success) stats.wins += 1;
+      stats.hist = (stats.hist || []);
+      stats.hist.unshift(success ? 1 : 0);
+      stats.hist = stats.hist.slice(0, 10);
       saveStats();
       renderStats();
 
@@ -500,6 +634,7 @@
       } else {
         setBanner("lose", "技能發動失敗…", "能量潰散,什麼都沒獲得");
       }
+      celebrate(success);
 
       spinning = false;
       castBtn.disabled = false;
@@ -509,7 +644,7 @@
   }
 
   resetBtn.addEventListener("click", function () {
-    stats = { casts: 0, wins: 0 };
+    stats = { casts: 0, wins: 0, hist: [] };
     saveStats();
     renderStats();
     dialWrap.classList.remove("result-win", "result-lose");
